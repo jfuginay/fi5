@@ -5,6 +5,8 @@ import { z } from "zod";
  * built with invalid env vars.
  */
 const server = z.object({
+  POSTGRES_PRISMA_URL_NON_POOLING: z.string().url(),
+  POSTGRES_PRISMA_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(["development", "test", "production"]),
   NEXTAUTH_SECRET:
