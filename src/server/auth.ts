@@ -20,8 +20,8 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      email?: string;
-      name?: string;
+      email?: string | null;
+      name?: string | null;
       role: UserRole;
       groupId: number;
     } & DefaultSession["user"];
@@ -33,41 +33,45 @@ declare module "next-auth" {
   }
 }
 
+// Type-safe email template parameters
+interface EmailTemplateParams {
+  url: string;
+  host: string;
+  theme?: Theme;
+}
+
 export const authOptions: NextAuthOptions = {
   theme: {
     colorScheme: "light",
     brandColor: "#319795",
   },
   callbacks: {
-    // Your existing callbacks remain the same
     session: ({ session, user }) => {
       if (session.user) {
         session.user.id = user.id;
-        session.user.role = user.role;
+        session.user.role = user.role as UserRole;
         session.user.groupId = user.groupId;
       }
       return session;
     },
     signIn: async ({ user, account }) => {
-      // Your existing signIn logic remains the same
       return true;
     },
   },
   
-  // Use PrismaAdapter with the new database connection
   adapter: PrismaAdapter(prisma),
   
   providers: [
     Email({
       server: {
-        host: env.EMAIL_HOST,
-        port: Number(env.EMAIL_PORT),
+        host: env.EMAIL_HOST || "",
+        port: Number(env.EMAIL_PORT) || 587,
         auth: {
-          user: env.EMAIL_USERNAME,
-          pass: env.EMAIL_PASSWORD,
+          user: env.EMAIL_USERNAME || "",
+          pass: env.EMAIL_PASSWORD || "",
         },
       },
-      from: env.EMAIL_FROM,
+      from: env.EMAIL_FROM || "noreply@example.com",
       sendVerificationRequest: async ({
         identifier: email,
         provider: { server, from },
@@ -78,10 +82,10 @@ export const authOptions: NextAuthOptions = {
         const transport = createTransport(server);
         const result = await transport.sendMail({
           to: email,
-          from: from,
+          from,
           subject: `Sign in to ${host}`,
           text: text({ url, host }),
-          html: html({ url, host, theme }),
+          html: html({ url, host, theme: theme || {} }),
         });
 
         const failed = result.rejected.concat(result.pending).filter(Boolean);
@@ -90,27 +94,35 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    GoogleProvider({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    }),
-    FacebookProvider({
-      clientId: env.FACEBOOK_CLIENT_ID,
-      clientSecret: env.FACEBOOK_CLIENT_SECRET,
-    }),
-    Okta({
-      clientId: env.AUTH0_CLIENT_ID,
-      clientSecret: env.AUTH0_CLIENT_SECRET,
-      issuer: env.AUTH0_ISSUER,
-    }),
+    // Only add providers if the environment variables are defined
+    ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(env.FACEBOOK_CLIENT_ID && env.FACEBOOK_CLIENT_SECRET
+      ? [
+          FacebookProvider({
+            clientId: env.FACEBOOK_CLIENT_ID,
+            clientSecret: env.FACEBOOK_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(env.AUTH0_CLIENT_ID && env.AUTH0_CLIENT_SECRET && env.AUTH0_ISSUER
+      ? [
+          Okta({
+            clientId: env.AUTH0_CLIENT_ID,
+            clientSecret: env.AUTH0_CLIENT_SECRET,
+            issuer: env.AUTH0_ISSUER,
+          }),
+        ]
+      : []),
   ],
 };
 
-/**
- * Wrapper for getServerSession so that you don't need
- * to import the authOptions in every file.
- * @see https://next-auth.js.org/configuration/nextjs
- */
 export const getServerAuthSession = (ctx: {
   req: GetServerSidePropsContext["req"];
   res: GetServerSidePropsContext["res"];
@@ -119,9 +131,7 @@ export const getServerAuthSession = (ctx: {
 };
 
 // Email HTML body
-function html(params: { url: string; host: string; theme: Theme }) {
-  const { url, host, theme } = params;
-
+function html({ url, host, theme = {} }: EmailTemplateParams): string {
   const escapedHost = host.replace(/\./g, "&#8203;.");
 
   const brandColor = theme.brandColor || "#346df1";
@@ -168,6 +178,6 @@ function html(params: { url: string; host: string; theme: Theme }) {
 }
 
 // Email Text body (fallback for email clients that don't render HTML)
-function text({ url, host }: { url: string; host: string }) {
+function text({ url, host }: EmailTemplateParams): string {
   return `Sign in to ${host}\n${url}\n\n`;
 }
