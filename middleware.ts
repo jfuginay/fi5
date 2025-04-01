@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
+import { createMiddlewareSupabaseClient } from "@supabase/auth-helpers-nextjs";
 import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -9,13 +9,8 @@ export async function middleware(request: NextRequest) {
   // Check if the path is public
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
-  // Create a Supabase client
-  const supabase = createServerSupabaseClient({
-    req: {
-      headers: Object.fromEntries(request.headers),
-      cookies: Object.fromEntries(request.cookies.entries()),
-    },
-  });
+  // Create a Supabase client for middleware
+  const supabase = createMiddlewareSupabaseClient({ req: request });
   const {
     data: { session },
   } = await supabase.auth.getSession();
