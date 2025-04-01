@@ -1,0 +1,22 @@
+default:
+  image: node:16.16.0
+
+stages:
+  - deploy
+
+
+#####################################################################
+# COMMON PIPELINE
+#####################################################################
+
+deploy_production:
+  stage: deploy
+  only:
+    refs:
+      - main
+  when: manual
+  script:
+    - npm install -g vercel@latest
+    - vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+    - vercel build --prod --token=$VERCEL_TOKEN
+    - vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
