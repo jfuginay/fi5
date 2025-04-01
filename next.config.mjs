@@ -6,6 +6,8 @@
  */
 !process.env.SKIP_ENV_VALIDATION && (await import("./src/env.mjs"));
 
+// test
+
 
 /** @type {import("next").NextConfig} */
 const config = {
