@@ -1,13 +1,24 @@
 import { z } from "zod";
 
-/**
- * Specify your server-side environment variables schema here. This way you can ensure the app isn't
- * built with invalid env vars.
- */
 const server = z.object({
+  // Existing variables
   POSTGRES_PRISMA_URL_NON_POOLING: z.string().url(),
   POSTGRES_PRISMA_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
+  
+  // New Supabase variables
+  POSTGRES_URL: z.string().url(),
+  POSTGRES_URL_NON_POOLING: z.string().url(),
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_JWT_SECRET: z.string().min(1),
+  POSTGRES_USER: z.string().min(1),
+  POSTGRES_PASSWORD: z.string().min(1),
+  POSTGRES_DATABASE: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  POSTGRES_HOST: z.string().min(1),
+  SUPABASE_ANON_KEY: z.string().min(1),
+  
+  // Existing variables continued
   NODE_ENV: z.enum(["development", "test", "production"]),
   NEXTAUTH_SECRET:
     process.env.NODE_ENV === "production"
@@ -33,22 +44,33 @@ const server = z.object({
   FACEBOOK_CLIENT_SECRET: z.string().min(1),
 });
 
-/**
- * Specify your client-side environment variables schema here. This way you can ensure the app isn't
- * built with invalid env vars. To expose them to the client, prefix them with `NEXT_PUBLIC_`.
- */
 const client = z.object({
+  // Existing client variables
   NEXT_PUBLIC_MAPBOX_TOKEN: z.string().min(1),
+  // New Supabase public variables
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
-/**
- * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
- * middlewares) or client-side so we need to destruct manually.
- *
- * @type {Record<keyof z.infer<typeof server> | keyof z.infer<typeof client>, string | undefined>}
- */
 const processEnv = {
+  // Existing variables
   DATABASE_URL: process.env.DATABASE_URL,
+  
+  // New Supabase variables
+  POSTGRES_URL: process.env.POSTGRES_URL,
+  POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+  POSTGRES_USER: process.env.POSTGRES_USER,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
+  POSTGRES_DATABASE: process.env.POSTGRES_DATABASE,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  POSTGRES_HOST: process.env.POSTGRES_HOST,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  
+  // Existing variables continued
   NODE_ENV: process.env.NODE_ENV,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
@@ -72,9 +94,7 @@ const processEnv = {
   FACEBOOK_CLIENT_SECRET: process.env.FACEBOOK_CLIENT_SECRET,
 };
 
-// Don't touch the part below
-// --------------------------
-
+// Rest of the file remains unchanged
 const merged = server.merge(client);
 
 /** @typedef {z.input<typeof merged>} MergedInput */
@@ -88,8 +108,8 @@ if (!!process.env.SKIP_ENV_VALIDATION === false) {
 
   const parsed = /** @type {MergedSafeParseReturn} */ (
     isServer
-      ? merged.safeParse(processEnv) // on server we can validate all env vars
-      : client.safeParse(processEnv) // on client we can only validate the ones that are exposed
+      ? merged.safeParse(processEnv)
+      : client.safeParse(processEnv)
   );
 
   if (parsed.success === false) {
@@ -103,8 +123,6 @@ if (!!process.env.SKIP_ENV_VALIDATION === false) {
   env = new Proxy(parsed.data, {
     get(target, prop) {
       if (typeof prop !== "string") return undefined;
-      // Throw a descriptive error if a server-side env var is accessed on the client
-      // Otherwise it would just be returning `undefined` and be annoying to debug
       if (!isServer && !prop.startsWith("NEXT_PUBLIC_"))
         throw new Error(
           process.env.NODE_ENV === "production"
