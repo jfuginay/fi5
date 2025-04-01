@@ -10,7 +10,8 @@ export async function middleware(request: NextRequest) {
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
   // Create a Supabase client for middleware
-  const supabase = createMiddlewareSupabaseClient({ req: request });
+  const res = NextResponse.next();
+  const supabase = createMiddlewareSupabaseClient({ req: request, res });
   const {
     data: { session },
   } = await supabase.auth.getSession();
